@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!-- Título de la página -->
+    <title>Glados Chatbot</title>
+    <!-- Incluye la librería de jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Vincula la hoja de estilos CSS -->
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/styles.css') }}">
+    <!-- Incluye los estilos de Prism para resaltar el código -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism-tomorrow.min.css">
+    <!-- Incluye la librería Prism para resaltar el código -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js"></script>
+</head>
+<body>
+    <div class="chat-container">
+        <!-- Encabezado del chatbot -->
+        <h1 class="chat-header">Glados Chatbot</h1>
+        <!-- Contenedor de mensajes del chat -->
+        <div class="chat-messages" id="chatMessages"></div>
+        <!-- Formulario para enviar mensajes -->
+        <form id="chatForm" class="chat-form">
+            <input type="text" id="question" name="question" placeholder="Escribe tu pregunta..." required>
+            <button type="submit">Enviar</button>
+        </form>
+    </div>
+
+    <script>
+        $(document).ready(function(){
+            // Manejador de eventos para el envío del formulario
+            $('#chatForm').on('submit', function(e){
+                e.preventDefault(); // Previene el comportamiento por defecto del formulario
+                const userMessage = $('#question').val(); // Obtiene el valor del input
+                addMessage('user', escapeHTML(userMessage)); // Añade el mensaje del usuario al chat
+                $('#question').val(''); // Limpia el input
+
+                addLoadingDots(); // Añade los puntos de carga
+
+                // Realiza una solicitud AJAX
+                $.ajax({
+                    type: 'POST',
+                    url: '/ask',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ question: userMessage }), // Serializa los datos en formato JSON
+                    success: function(response){
+                        removeLoadingDots(); // Elimina los puntos de carga
+                        addMessage('bot', formatMessage(response.answer)); // Añade el mensaje del bot al chat
+                        Prism.highlightAll(); // Resalta el código
+                    },
+                    error: function(error){
+                        removeLoadingDots(); // Elimina los puntos de carga
+                        addMessage('bot', 'Error al obtener respuesta.'); // Añade un mensaje de error
+                    }
+                });
+            });
+
+            // Función para añadir un mensaje al chat
+            function addMessage(sender, message) {
+                const messageClass = sender === 'user' ? 'user-message' : 'bot-message'; // Determina la clase del mensaje
+                $('#chatMessages').append('<div class="message ' + messageClass + '">' + message + '</div>'); // Añade el mensaje
+                $('#chatMessages').scrollTop($('#chatMessages')[0].scrollHeight); // Desplaza hacia abajo el contenedor de mensajes
+            }
+
+            // Función para añadir puntos de carga al chat
+            function addLoadingDots() {
+                $('#chatMessages').append('<div class="message bot-message" id="loadingDots">...</div>'); // Añade puntos de carga
+                $('#chatMessages').scrollTop($('#chatMessages')[0].scrollHeight); // Desplaza hacia abajo el contenedor de mensajes
+            }
+
+            // Función para eliminar los puntos de carga del chat
+            function removeLoadingDots() {
+                $('#loadingDots').remove(); // Elimina los puntos de carga
+            }
+
+            // Función para formatear el mensaje, especialmente para el código
+            function formatMessage(message) {
+                const parts = message.split(/(```[\s\S]*?```)/g); // Divide el mensaje en partes usando el delimitador de código
+                return parts.map(part => {
+                    if (part.startsWith('```')) { // Si la parte es un bloque de código
+                        const lang = part.match(/```([a-zA-Z]*)/)[1]; // Obtiene el lenguaje del código
+                        const code = part.replace(/```[a-zA-Z]*\n/, '').replace(/```/, ''); // Elimina los delimitadores de código
+                        return `<pre><code class="language-${lang}">${escapeHTML(code)}</code></pre>`; // Formatea el código
+                    } else {
+                        return escapeHTML(part).replace(/\n/g, '<br>'); // Formatea el texto normal
+                    }
+                }).join(''); // Une todas las partes formateadas
+            }
+
+            // Función para escapar caracteres HTML
+            function escapeHTML(text) {
+                var map = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                };
+                return text.replace(/[&<>"']/g, function(m) { return map[m]; }); // Reemplaza caracteres especiales por entidades HTML
+            }
+        });
+    </script>
+</body>
+</html>
